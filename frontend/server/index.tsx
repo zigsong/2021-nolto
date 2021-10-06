@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
+import { dehydrate, Hydrate, QueryClient, QueryClientProvider } from 'react-query';
 import { StaticRouter } from 'react-router';
 import { ServerStyleSheet, StyleSheetManager } from 'styled-components';
 import { ChunkExtractor } from '@loadable/server';
@@ -9,6 +10,9 @@ import path from 'path';
 import fs from 'fs';
 
 import App from '../src/App';
+import QUERY_KEYS from 'constants/queryKeys';
+import { getFeedDetail } from 'hooks/queries/feed/useFeedDetail';
+import { loadHotFeeds } from 'hooks/queries/feed/useHotFeedsLoad';
 
 const PORT = process.env.PORT || 9000;
 const app = express();
@@ -22,20 +26,51 @@ const statsFile = path.resolve(__dirname, '../dist/loadable-stats.json');
 
 const extractor = new ChunkExtractor({ statsFile });
 
-app.get(['/', '/about', '/feeds/:feedId'], async (req, res) => {
-  const jsx = extractor.collectChunks(
-    <StyleSheetManager sheet={sheet.instance}>
-      <StaticRouter location={req.url}>
-        <App />
-      </StaticRouter>
-    </StyleSheetManager>,
-  );
+type PrefetchCallback = (queryClient: QueryClient) => Promise<void>;
 
-  const scriptTags = extractor.getScriptTags();
+const generateResponse = async (
+  req: express.Request,
+  res: express.Response,
+  prefetchCallback?: PrefetchCallback,
+) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        suspense: true,
+        useErrorBoundary: true,
+        retry: 1,
+        staleTime: Infinity,
+      },
+    },
+  });
+
+  if (typeof prefetchCallback === 'function') {
+    await prefetchCallback(queryClient);
+  }
+
+  const dehydratedState = dehydrate(queryClient);
+
+  const jsx = extractor.collectChunks(
+    <QueryClientProvider client={queryClient}>
+      <Hydrate state={dehydratedState}>
+        <StyleSheetManager sheet={sheet.instance}>
+          <StaticRouter location={req.url}>
+            <App />
+          </StaticRouter>
+        </StyleSheetManager>
+      </Hydrate>
+    </QueryClientProvider>,
+  );
 
   const reactApp = ReactDOMServer.renderToString(jsx);
 
   const styleTags = sheet.getStyleTags();
+
+  const scriptTags = extractor.getScriptTags();
+
+  const reactQueryState = `<script>window.__REACT_QUERY_STATE__ = ${JSON.stringify(
+    dehydratedState,
+  )}</script>`;
 
   const indexFile = path.resolve(__dirname, '../dist/index.html');
 
@@ -47,9 +82,30 @@ app.get(['/', '/about', '/feeds/:feedId'], async (req, res) => {
 
     const result = data
       .replace('<div id="root"></div>', `<div id="root">${reactApp}</div>`)
-      .replace(/<head>(.+)<\/head>/s, `<head>$1 ${styleTags} ${scriptTags}</head>`);
+      .replace(
+        /<head>(.+)<\/head>/s,
+        `<head>$1 ${styleTags} ${scriptTags} ${reactQueryState}</head>`,
+      );
 
     return res.send(result);
+  });
+};
+
+app.get('/', async (req, res) => {
+  await generateResponse(req, res, async (queryClient) => {
+    await queryClient.prefetchQuery(QUERY_KEYS.HOT_FEEDS, () => loadHotFeeds());
+  });
+});
+
+app.get('/recent', async (req, res) => {
+  await generateResponse(req, res);
+});
+
+app.get('/feeds/:feedId', async (req, res) => {
+  await generateResponse(req, res, async (queryClient) => {
+    await queryClient.prefetchQuery([QUERY_KEYS.FEED_DETAIL, Number(req.params.feedId)], () =>
+      getFeedDetail(Number(req.params.feedId)),
+    );
   });
 });
 

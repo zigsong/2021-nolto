@@ -37,11 +37,12 @@ const FeedDetailContent = ({ feedId }: Props) => {
   const snackbar = useSnackbar();
   const member = useMember();
 
-  const { data: feedDetail } = useFeedDetail({
+  const { data: feedDetail, isLoading } = useFeedDetail({
     errorHandler: (error) => {
       snackbar.addSnackbar('error', error.message);
     },
     feedId,
+    suspense: false,
   });
 
   const searchByTag = (tech: string) => {
@@ -83,21 +84,21 @@ const FeedDetailContent = ({ feedId }: Props) => {
     });
   };
 
-  const isMyFeed = member.userData?.id === feedDetail.author.id;
+  const isMyFeed = member.userData?.id === feedDetail?.author.id;
 
   const thumbnailElement: React.ReactNode = (
     <>
-      {feedDetail.sos && <SOSFlag />}
+      {feedDetail?.sos && <SOSFlag />}
       <Styled.Thumbnail>
-        <FeedThumbnail thumbnailUrl={feedDetail.thumbnailUrl} />
+        <FeedThumbnail thumbnailUrl={feedDetail?.thumbnailUrl} />
       </Styled.Thumbnail>
       <Styled.IconsContainer>
         <Styled.IconWrapper>
-          <LikeButton feedDetail={feedDetail} />
+          <LikeButton feedDetail={feedDetail || null} />
         </Styled.IconWrapper>
         <Styled.IconWrapper>
           <ViewCountIcon width="22px" fill={PALETTE.PRIMARY_400} />
-          <span>{feedDetail.views}</span>
+          <span>{feedDetail?.views}</span>
         </Styled.IconWrapper>
       </Styled.IconsContainer>
     </>
@@ -110,6 +111,8 @@ const FeedDetailContent = ({ feedId }: Props) => {
   };
 
   useEffect(() => {
+    if (isLoading) return;
+
     if (hasWindow && window.Kakao.isInitialized()) {
       if (!isKakaoLoaded) {
         createKakaoShare();
@@ -118,7 +121,11 @@ const FeedDetailContent = ({ feedId }: Props) => {
     }
 
     return () => setKakaoLoaded(false);
-  }, []);
+  }, [isLoading]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   // TODO: 댓글 로딩 부분 스켈레톤으로 리팩토링
   return (
