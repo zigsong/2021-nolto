@@ -7,7 +7,7 @@ export const STEP_CONVERTER: { [index: string]: string } = {
   [FeedStep.COMPLETE]: '전시중',
 };
 
-export const THUMBNAIL_EXTENSION = [
+export const THUMBNAIL_IMG_EXTENSION = [
   'image/apng',
   'image/bmp',
   'image/gif',
@@ -25,3 +25,5 @@ export const HEIGHT = {
 export const DEFAULT_IMG = {
   FEED: defaultFeed,
 } as const;
+
+export const RECENT_FEEDS_PER_PAGE = 20;

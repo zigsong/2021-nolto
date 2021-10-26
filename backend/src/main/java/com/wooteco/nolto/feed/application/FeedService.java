@@ -5,7 +5,10 @@ import com.wooteco.nolto.exception.NotFoundException;
 import com.wooteco.nolto.exception.UnauthorizedException;
 import com.wooteco.nolto.feed.application.searchstrategy.SearchStrategy;
 import com.wooteco.nolto.feed.application.searchstrategy.SearchStrategyFactory;
-import com.wooteco.nolto.feed.domain.*;
+import com.wooteco.nolto.feed.domain.Feed;
+import com.wooteco.nolto.feed.domain.FeedTech;
+import com.wooteco.nolto.feed.domain.Feeds;
+import com.wooteco.nolto.feed.domain.Step;
 import com.wooteco.nolto.feed.domain.repository.FeedRepository;
 import com.wooteco.nolto.feed.domain.repository.FeedTechRepository;
 import com.wooteco.nolto.feed.ui.dto.FeedCardPaginationResponse;
@@ -23,8 +26,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.transaction.Transactional;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -53,10 +56,14 @@ public class FeedService {
 
     public void update(User user, Long feedId, FeedRequest request) {
         Feed findFeed = user.findMyFeed(feedId);
+        removeFeedTechs(findFeed);
+        updateFeed(request, findFeed);
+    }
+
+    private void removeFeedTechs(Feed findFeed) {
         List<FeedTech> feedTechs = findFeed.getFeedTechs();
         feedTechRepository.deleteAll(feedTechs);
         feedTechs.clear();
-        updateFeed(request, findFeed);
     }
 
     private void updateFeed(FeedRequest request, Feed findFeed) {
@@ -88,20 +95,16 @@ public class FeedService {
         return FeedResponse.of(author, feed, liked);
     }
 
+    @Transactional(readOnly = true)
     public Feed findEntityById(Long feedId) {
         return feedRepository.findById(feedId)
                 .orElseThrow(() -> new NotFoundException(ErrorType.FEED_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
     public List<FeedCardResponse> findHotFeeds() {
         Feeds feeds = new Feeds(feedRepository.findAll(Sort.by(Sort.Direction.DESC, "createdDate")));
         return FeedCardResponse.toList(feeds.sortedByLikeCount(10));
-    }
-
-    public List<FeedCardResponse> findAll(String filter) {
-        FilterStrategy strategy = FilterStrategy.of(filter);
-        Feeds feeds = new Feeds(feedRepository.findAll(Sort.by(Sort.Direction.DESC, "createdDate")));
-        return FeedCardResponse.toList(feeds.filter(strategy));
     }
 
     public void delete(User user, Long feedId) {
@@ -120,7 +123,8 @@ public class FeedService {
         return generateFeedCardPaginationResponse(countPerPage, findFeeds);
     }
 
-    private List<Feed> findRecentFeedsWithCondition(boolean help, long nextFeedId, EnumSet<Step> steps, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public List<Feed> findRecentFeedsWithCondition(boolean help, long nextFeedId, EnumSet<Step> steps, Pageable pageable) {
         if (help) {
             return feedRepository.findWithHelp(steps, true, nextFeedId, pageable);
         }
@@ -136,6 +140,7 @@ public class FeedService {
         return FeedCardPaginationResponse.of(findFeeds, null);
     }
 
+    @Transactional(readOnly = true)
     public FeedCardPaginationResponse search(String query, String techs, String step, boolean help, long nextFeedId, int countPerPage) {
         EnumSet<Step> steps = Step.asEnumSet(step);
         Pageable pageable = PageRequest.of(0, countPerPage + NEXT_FEED_COUNT);

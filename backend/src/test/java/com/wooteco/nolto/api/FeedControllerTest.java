@@ -40,12 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = FeedController.class)
 class FeedControllerTest extends ControllerTest {
 
-    private static final String ACCESS_TOKEN = "accessToken";
-    private static final String ACCESS_TOKEN_OPTIONAL = "accessTokenOptional";
-
     private static final MockMultipartFile MOCK_MULTIPART_FILE =
             new MockMultipartFile("thumbnailImage", "thumbnailImage.png", "image/png", "<<png data>>".getBytes());
-
     private static final long FEED_ID = 1L;
 
     public static final Feed FEED1 = Feed.builder()
@@ -207,8 +203,8 @@ class FeedControllerTest extends ControllerTest {
         willDoNothing().given(feedService).delete(any(User.class), any(Long.class));
 
         mockMvc.perform(
-                delete("/feeds/{feedId}", FEED_ID)
-                        .header("Authorization", "Bearer " + ACCESS_TOKEN))
+                        delete("/feeds/{feedId}", FEED_ID)
+                                .header("Authorization", "Bearer " + ACCESS_TOKEN))
                 .andExpect(status().isNoContent())
                 .andDo(document("feed-delete",
                         getDocumentRequest(),
@@ -226,10 +222,10 @@ class FeedControllerTest extends ControllerTest {
         given(feedService.viewFeed(any(User.class), any(), anyBoolean())).willReturn(FEED_RESPONSE);
 
         mockMvc.perform(
-                get("/feeds/{feedId}", FEED_ID)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + ACCESS_TOKEN_OPTIONAL))
+                        get("/feeds/{feedId}", FEED_ID)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .accept(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + ACCESS_TOKEN_OPTIONAL))
                 .andExpect(status().isOk())
                 .andExpect(content().json(objectMapper.writeValueAsString(FEED_RESPONSE)))
                 .andDo(document("feed-findById",
@@ -273,7 +269,7 @@ class FeedControllerTest extends ControllerTest {
         params.add("countPerPage", "2");
 
         mockMvc.perform(get("/feeds/recent")
-                .params(params))
+                        .params(params))
                 .andExpect(status().isOk())
                 .andExpect(content().json(objectMapper.writeValueAsString(feedCardPaginationResponse)))
                 .andDo(document("feed-recentResponse",
@@ -314,7 +310,7 @@ class FeedControllerTest extends ControllerTest {
         given(authService.findUserByToken(ACCESS_TOKEN)).willReturn(LOGIN_USER);
 
         mockMvc.perform(post("/feeds/{feedId}/like", FEED_ID)
-                .header("Authorization", "Bearer " + ACCESS_TOKEN))
+                        .header("Authorization", "Bearer " + ACCESS_TOKEN))
                 .andExpect(status().isOk())
                 .andDo(document("feed-addLike",
                         getDocumentRequest(),
@@ -332,8 +328,8 @@ class FeedControllerTest extends ControllerTest {
         willDoNothing().given(likeService).deleteLike(LOGIN_USER, FEED_ID);
 
         mockMvc.perform(post("/feeds/{feedId}/unlike", FEED_ID)
-                .header("Authorization", "Bearer " + ACCESS_TOKEN)
-                .characterEncoding("UTF-8"))
+                        .header("Authorization", "Bearer " + ACCESS_TOKEN)
+                        .characterEncoding("UTF-8"))
                 .andExpect(status().isOk())
                 .andDo(document("feed-deleteLike",
                         getDocumentRequest(),

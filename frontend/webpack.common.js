@@ -1,9 +1,14 @@
 const path = require('path');
-const HtmlWebPackPlugin = require('html-webpack-plugin');
 const { DefinePlugin } = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
+const LoadablePlugin = require('@loadable/webpack-plugin');
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
 module.exports = {
+  mode: isDevelopment ? 'development' : 'production',
+  target: isDevelopment ? 'web' : 'browserslist',
   entry: './src/index.tsx',
   output: {
     path: path.resolve(__dirname, './dist'),
@@ -11,7 +16,6 @@ module.exports = {
     publicPath: '/',
     clean: true,
   },
-  target: 'browserslist',
   module: {
     rules: [
       {
@@ -21,7 +25,12 @@ module.exports = {
             loader: 'babel-loader',
             options: {
               presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
-              plugins: ['@babel/plugin-transform-runtime', 'babel-plugin-styled-components'],
+              plugins: [
+                isDevelopment && 'react-refresh/babel',
+                '@babel/plugin-transform-runtime',
+                'babel-plugin-styled-components',
+                '@loadable/babel-plugin',
+              ].filter(Boolean),
             },
           },
         ],
@@ -35,7 +44,7 @@ module.exports = {
         test: /\.(png|jpe?g|gif|webp|mp4)$/i,
         type: 'asset/resource',
         generator: {
-          filename: 'static/[name][ext]',
+          filename: 'static/[hash][name][ext]',
         },
       },
     ],
@@ -45,20 +54,23 @@ module.exports = {
     modules: [path.resolve(__dirname, 'src'), 'node_modules'],
   },
   plugins: [
-    new HtmlWebPackPlugin({
-      template: './public/index.html',
-    }),
     new CopyPlugin({
       patterns: [
-        path.resolve(__dirname, 'public', '_redirects'),
-        { from: './public/fonts/*', to: 'fonts/[name][ext]' },
-        { from: './public/*.ico', to: '[name][ext]' },
+        {
+          from: 'public',
+          to: path.resolve(__dirname, './dist'),
+          filter: (resourcePath) => {
+            return !resourcePath.includes('index.html');
+          },
+        },
       ],
     }),
     new DefinePlugin({
       'process.env.BASE_URL': JSON.stringify(process.env.BASE_URL),
     }),
-  ],
+    new LoadablePlugin(),
+    isDevelopment && new ReactRefreshWebpackPlugin(),
+  ].filter(Boolean),
   optimization: {
     splitChunks: {
       chunks: 'async',

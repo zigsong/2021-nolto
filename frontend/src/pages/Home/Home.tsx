@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 
 import MoreArrow from 'assets/moreArrow.svg';
 import Page from 'pages';
@@ -13,6 +14,7 @@ import ROUTE from 'constants/routes';
 import { ERROR_MSG } from 'constants/message';
 import QUERY_KEYS from 'constants/queryKeys';
 import { PALETTE } from 'constants/palette';
+import hasWindow from 'constants/windowDetector';
 import useOnScreen from 'hooks/@common/useOnScreen';
 import { FeedStep } from 'types';
 import HomeFeedsContent from './HomeFeedsContent/HomeFeedsContent';
@@ -27,19 +29,32 @@ const Home = ({ toggleTheme }: Props) => {
   const isEllipseVisible = useOnScreen(ellipseRef);
 
   const scrollTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (hasWindow) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
-  const localSettingTheme = localStorage.getItem('theme');
+  const localSettingTheme = hasWindow ? localStorage.getItem('theme') : 'default';
 
-  const searchTitle = localSettingTheme === 'default' ? 'Search for Ideas?' : '🌝 Happy Chuseok ❣️';
+  const searchTitle =
+    localSettingTheme === 'default' ? 'Search for Ideas?' : '🎃 Trick or Treat! 👻';
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (!hasWindow) {
+      window.scrollTo(0, 0);
+    }
   }, []);
 
   return (
     <BaseLayout header={<Header isFolded={isEllipseVisible} />}>
+      <Helmet>
+        <title>놀토: 놀러오세요 토이프로젝트</title>
+        <link rel="canonical" href="https://www.nolto.app" />
+        <meta
+          name="description"
+          content="모두의 작고 소중한 토이프로젝트를 한눈에, 놀러오세요 토이프로젝트!"
+        />
+      </Helmet>
       <Styled.EllipseWrapper ref={ellipseRef}>
         <CroppedEllipse toggleTheme={toggleTheme} />
       </Styled.EllipseWrapper>
@@ -68,15 +83,22 @@ const Home = ({ toggleTheme }: Props) => {
 
         <Styled.ToysContainer>
           <Styled.TitleWrapper>
-            <Styled.SectionTitle>🧩 진행중인 프로젝트</Styled.SectionTitle>
+            <h2>
+              <Styled.SectionTitle>🧩 진행중인 프로젝트</Styled.SectionTitle>
+            </h2>
             <MoreButton
               to={{
                 pathname: ROUTE.RECENT,
-                state: { step: FeedStep.PROGRESS },
+                search:
+                  '?' +
+                  new URLSearchParams({
+                    step: FeedStep.PROGRESS,
+                  }),
               }}
               onMouseOver={() => Page.RecentFeeds.preload()}
             >
               MORE&nbsp;
+              <span className="visually-hidden">진행중 프로젝트 더보기</span>
               <MoreArrow width="10px" />
             </MoreButton>
           </Styled.TitleWrapper>
@@ -91,15 +113,22 @@ const Home = ({ toggleTheme }: Props) => {
 
         <Styled.ToysContainer>
           <Styled.TitleWrapper>
-            <Styled.SectionTitle>🦄 완성된 프로젝트</Styled.SectionTitle>
+            <h2>
+              <Styled.SectionTitle>🦄 완성된 프로젝트</Styled.SectionTitle>
+            </h2>
             <MoreButton
               to={{
                 pathname: ROUTE.RECENT,
-                state: { step: FeedStep.COMPLETE },
+                search:
+                  '?' +
+                  new URLSearchParams({
+                    step: FeedStep.COMPLETE,
+                  }),
               }}
               onMouseOver={() => Page.RecentFeeds.preload()}
             >
               MORE&nbsp;
+              <span className="visually-hidden">완성된 프로젝트 더보기</span>
               <MoreArrow width="10px" />
             </MoreButton>
           </Styled.TitleWrapper>
@@ -112,7 +141,7 @@ const Home = ({ toggleTheme }: Props) => {
           </AsyncBoundary>
         </Styled.ToysContainer>
       </Styled.ContentArea>
-      <ScrollUpButton size="3rem" onClick={scrollTop}>
+      <ScrollUpButton size="3rem" onClick={scrollTop} aria-label="페이지 상단으로 이동">
         <Styled.ArrowUp width="14px" fill={PALETTE.PRIMARY_400} />
       </ScrollUpButton>
     </BaseLayout>

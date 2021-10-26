@@ -6,8 +6,8 @@ import FilledLikeHeart from 'assets/filledLikeHeart.svg';
 import useLike from 'hooks/@common/useLike';
 import useFeedLike from 'hooks/queries/feed/useFeedLike';
 import useFeedUnlike from 'hooks/queries/feed/useFeedUnlike';
-import useMember from 'hooks/queries/useMember';
 import LoginModal from 'components/LoginModal/LoginModal';
+import useMember from 'contexts/member/useMember';
 import useSnackbar from 'contexts/snackbar/useSnackbar';
 import useModal from 'contexts/modal/useModal';
 import useDialog from 'contexts/dialog/useDialog';
@@ -64,7 +64,7 @@ const LikeButton = ({ feedDetail }: Props) => {
   });
 
   const handleToggleLike = () => {
-    if (!member.userData) {
+    if (!member.userInfo) {
       snackbar.addSnackbar('error', '로그인이 필요한 서비스입니다.');
       return;
     }
@@ -80,6 +80,7 @@ const LikeButton = ({ feedDetail }: Props) => {
   return (
     <Styled.Root>
       <Button onClick={handleToggleLike}>
+        <span className="visually-hidden">좋아요</span>
         {isLiked ? (
           <FilledLikeHeart width="18px" fill={PALETTE.PRIMARY_400} />
         ) : (

@@ -39,13 +39,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = MemberController.class)
 class MemberControllerTest extends ControllerTest {
 
-    private static final String ACCESS_TOKEN = "accessToken";
-
     private static final long NOTIFICATIONS = 0L;
     private static final long NOTIFICATION_ID = 1L;
 
-    private static Comment COMMENT1;
-    private static Comment COMMENT2;
+    private static Comment COMMENT1 = new Comment("comment1", true).writtenBy(LOGIN_USER, FEED1);
+    private static Comment COMMENT2 = new Comment("comment2", true).writtenBy(LOGIN_USER, FEED2);
 
     private static final MemberResponse MEMBER_RESPONSE = MemberResponse.of(LOGIN_USER, NOTIFICATIONS);
     private static final NicknameValidationResponse NICKNAME_VALIDATION_RESPONSE = new NicknameValidationResponse(true);
@@ -92,9 +90,9 @@ class MemberControllerTest extends ControllerTest {
         given(memberService.findMemberOfMine(LOGIN_USER)).willReturn(MEMBER_RESPONSE);
 
         mockMvc.perform(
-                get("/members/me")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + ACCESS_TOKEN))
+                        get("/members/me")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + ACCESS_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(content().json(objectMapper.writeValueAsString(MEMBER_RESPONSE)))
                 .andDo(document("member-findMe",
@@ -117,9 +115,9 @@ class MemberControllerTest extends ControllerTest {
         given(memberService.validateDuplicated(검증할_닉네임)).willReturn(NICKNAME_VALIDATION_RESPONSE);
 
         mockMvc.perform(
-                get("/members/me/profile/validation").param("nickname", 검증할_닉네임)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + ACCESS_TOKEN))
+                        get("/members/me/profile/validation").param("nickname", 검증할_닉네임)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + ACCESS_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(content().json(objectMapper.writeValueAsString(NICKNAME_VALIDATION_RESPONSE)))
                 .andDo(document("member-validateDuplicatedNickname",
@@ -142,9 +140,9 @@ class MemberControllerTest extends ControllerTest {
         given(memberService.findProfile(LOGIN_USER)).willReturn(PROFILE_RESPONSE);
 
         mockMvc.perform(
-                get("/members/me/profile")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + ACCESS_TOKEN))
+                        get("/members/me/profile")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + ACCESS_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(content().json(objectMapper.writeValueAsString(PROFILE_RESPONSE)))
                 .andDo(document("member-findProfileOfMine",
@@ -206,14 +204,14 @@ class MemberControllerTest extends ControllerTest {
     @DisplayName("멤버가 자신의 히스토리(좋아요 한 글, 내가 작성한 글, 내가 남긴 댓글)를 조회한다.")
     @Test
     void findHistory() throws Exception {
-        given(authService.findUserByToken("accessToken")).willReturn(LOGIN_USER);
+        given(authService.findUserByToken(ACCESS_TOKEN)).willReturn(LOGIN_USER);
         MemberHistoryResponse memberHistoryResponse = setMemberHistoryResponse();
         given(memberService.findHistory(LOGIN_USER)).willReturn(memberHistoryResponse);
 
         mockMvc.perform(
-                get("/members/me/history")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer accessToken"))
+                        get("/members/me/history")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", BEARER + ACCESS_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(content().json(objectMapper.writeValueAsString(memberHistoryResponse)))
                 .andDo(document("member-findHistory",
@@ -233,8 +231,6 @@ class MemberControllerTest extends ControllerTest {
     public MemberHistoryResponse setMemberHistoryResponse() {
         List<Feed> likedFeeds = Arrays.asList(FEED1, FEED2);
         List<Feed> myFeeds = Arrays.asList(FEED1, FEED2);
-        COMMENT1 = new Comment("comment1", true).writtenBy(LOGIN_USER, FEED1);
-        COMMENT2 = new Comment("comment2", true).writtenBy(LOGIN_USER, FEED2);
         List<Comment> myComments = Arrays.asList(COMMENT1, COMMENT2);
 
         return MemberHistoryResponse.of(likedFeeds, myFeeds, myComments);
@@ -243,14 +239,14 @@ class MemberControllerTest extends ControllerTest {
     @DisplayName("멤버가 자신의 알림을 조회한다.")
     @Test
     void findNotifications() throws Exception {
-        given(authService.findUserByToken("accessToken")).willReturn(LOGIN_USER);
+        given(authService.findUserByToken(ACCESS_TOKEN)).willReturn(LOGIN_USER);
         List<NotificationResponse> notificationResponses = setMemberNotificationResponse();
         given(memberService.findNotifications(LOGIN_USER)).willReturn(notificationResponses);
 
         mockMvc.perform(
-                get("/members/me/notifications")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer accessToken"))
+                        get("/members/me/notifications")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", BEARER + ACCESS_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(content().json(objectMapper.writeValueAsString(notificationResponses)))
                 .andDo(document("member-findNotification",
@@ -274,11 +270,11 @@ class MemberControllerTest extends ControllerTest {
     @DisplayName("멤버가 자신의 알림 중 알림 ID에 해당하는 알림을 제거한다.")
     @Test
     void deleteNotification() throws Exception {
-        given(authService.findUserByToken("accessToken")).willReturn(LOGIN_USER);
+        given(authService.findUserByToken(ACCESS_TOKEN)).willReturn(LOGIN_USER);
 
         mockMvc.perform(
-                delete("/members/me/notifications/{notificationId}", NOTIFICATION_ID)
-                        .header("Authorization", "Bearer accessToken"))
+                        delete("/members/me/notifications/{notificationId}", NOTIFICATION_ID)
+                                .header("Authorization", BEARER + ACCESS_TOKEN))
                 .andExpect(status().isNoContent())
                 .andDo(document("member-deleteNotification",
                         getDocumentRequest(),
@@ -292,11 +288,11 @@ class MemberControllerTest extends ControllerTest {
     @DisplayName("멤버가 자신의 알림을 모두 제거한다.")
     @Test
     void deleteAllNotifications() throws Exception {
-        given(authService.findUserByToken("accessToken")).willReturn(LOGIN_USER);
+        given(authService.findUserByToken(ACCESS_TOKEN)).willReturn(LOGIN_USER);
 
         mockMvc.perform(
-                delete("/members/me/notifications")
-                        .header("Authorization", "Bearer accessToken"))
+                        delete("/members/me/notifications")
+                                .header("Authorization", BEARER + ACCESS_TOKEN))
                 .andExpect(status().isNoContent())
                 .andDo(document("member-deleteAllNotifications",
                         getDocumentRequest(),

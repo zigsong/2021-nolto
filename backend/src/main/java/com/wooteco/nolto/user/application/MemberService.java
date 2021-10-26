@@ -38,11 +38,6 @@ public class MemberService {
         return MemberHistoryResponse.of(likedFeeds, myFeeds, myComments);
     }
 
-    public NicknameValidationResponse validateDuplicated(String nickname) {
-        boolean isExistNickname = userRepository.existsByNickName(nickname);
-        return new NicknameValidationResponse(!isExistNickname);
-    }
-
     public ProfileResponse findProfile(User user) {
         long notificationCount = notificationService.findNotificationCount(user);
         return ProfileResponse.of(user, notificationCount);
@@ -76,7 +71,13 @@ public class MemberService {
     }
 
     public void deleteAllNotifications(User user) {
-        notificationService.deleteAll(user);
+        notificationService.deleteAllByListener(user);
+    }
+
+    @Transactional(readOnly = true)
+    public NicknameValidationResponse validateDuplicated(String nickname) {
+        boolean isExistNickname = userRepository.existsByNickName(nickname);
+        return new NicknameValidationResponse(!isExistNickname);
     }
 
     public MemberResponse findMemberOfMine(User user) {

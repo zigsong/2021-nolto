@@ -1,27 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 
 import { ButtonStyle } from 'types';
 import ViewCountIcon from 'assets/viewCount.svg';
 import ShareIcon from 'assets/share.svg';
 import useSnackbar from 'contexts/snackbar/useSnackbar';
 import useFeedDetail from 'hooks/queries/feed/useFeedDetail';
-import useMember from 'hooks/queries/useMember';
+import useMember from 'contexts/member/useMember';
+import hasWindow from 'constants/windowDetector';
 import { PALETTE } from 'constants/palette';
 import ROUTE from 'constants/routes';
 import QUERY_KEYS from 'constants/queryKeys';
 import { ERROR_MSG } from 'constants/message';
 import { Divider } from 'commonStyles';
-import ToggleList from 'components/@common/ToggleList/ToggleList';
 import FeedDropdown from 'components/FeedDropdown/FeedDropdown';
 import LikeButton from 'components/LikeButton/LikeButton';
 import CommentModule from 'components/CommentModule/CommentModule';
 import AsyncBoundary from 'components/AsyncBoundary';
 import ErrorFallback from 'components/ErrorFallback/ErrorFallback';
 import StepChip from 'components/StepChip/StepChip';
-import FeedThumbnail from 'components/FeedThumbnail/FeedThumbnail';
-import Styled, { Tag, SOSFlag } from './FeedDetailContent.styles';
+import Thumbnail from 'components/Thumbnail/Thumbnail';
 import Markdown from 'components/@common/Markdown/Markdown';
+import Styled, { Tag, SOSFlag } from './FeedDetailContent.styles';
+import { removeMarkdown } from 'utils/common';
 
 interface Props {
   feedId: number;
@@ -56,6 +58,8 @@ const FeedDetailContent = ({ feedId }: Props) => {
   };
 
   const createKakaoShare = () => {
+    if (!hasWindow) return;
+
     window.Kakao.Link.createDefaultButton({
       container: '#create-kakao-link-btn',
       objectType: 'feed',
@@ -80,14 +84,14 @@ const FeedDetailContent = ({ feedId }: Props) => {
     });
   };
 
-  const isMyFeed = member.userData?.id === feedDetail.author.id;
+  const isMyFeed = member.userInfo?.id === feedDetail.author.id;
 
   const thumbnailElement: React.ReactNode = (
     <>
       {feedDetail.sos && <SOSFlag />}
-      <Styled.Thumbnail>
-        <FeedThumbnail thumbnailUrl={feedDetail.thumbnailUrl} />
-      </Styled.Thumbnail>
+      <Styled.ThumbnailWrapper>
+        <Thumbnail thumbnailUrl={feedDetail.thumbnailUrl} alt={`${feedDetail.content} 이미지`} />
+      </Styled.ThumbnailWrapper>
       <Styled.IconsContainer>
         <Styled.IconWrapper>
           <LikeButton feedDetail={feedDetail} />
@@ -107,7 +111,7 @@ const FeedDetailContent = ({ feedId }: Props) => {
   };
 
   useEffect(() => {
-    if (window.Kakao.isInitialized()) {
+    if (hasWindow && window.Kakao.isInitialized()) {
       if (!isKakaoLoaded) {
         createKakaoShare();
         setKakaoLoaded(true);
@@ -120,25 +124,37 @@ const FeedDetailContent = ({ feedId }: Props) => {
   // TODO: 댓글 로딩 부분 스켈레톤으로 리팩토링
   return (
     <Styled.Root>
+      <Helmet>
+        <title>놀토: 토이프로젝트 - {feedDetail.title}</title>
+        <link rel="canonical" href="https://www.nolto.app/feeds" />
+        <meta
+          name="description"
+          content={removeMarkdown(feedDetail.content).replace(/\n+/g, ' ')}
+        />
+      </Helmet>
       <Styled.IntroContainer>
         <Styled.ThumbnailContainer>{thumbnailElement}</Styled.ThumbnailContainer>
         <Styled.FeedSummaryContainer>
           <Styled.TitleContainer>
             <Styled.TitleWrapper>
               <h2>{feedDetail.title}</h2>
-              <StepChip step={feedDetail.step} />
+              <StepChip className="step-chip" step={feedDetail.step} />
               <ShareIcon width="20px" />
               <a id="create-kakao-link-btn" onClick={handleKakaoShare}>
                 <img
                   src="https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_btn_small.png"
                   width="24px"
+                  alt="카카오톡 공유"
                 />
               </a>
             </Styled.TitleWrapper>
 
             <Styled.UserWrapper>
               <Styled.UserName>{feedDetail.author.nickname}</Styled.UserName>
-              <Styled.UserImage src={feedDetail.author.imageUrl} />
+              <Styled.UserThumbnail
+                thumbnailUrl={feedDetail.author.imageUrl}
+                alt={feedDetail.author.nickname}
+              />
               {isMyFeed && <FeedDropdown feedDetail={feedDetail} />}
             </Styled.UserWrapper>
           </Styled.TitleContainer>
@@ -176,7 +192,7 @@ const FeedDetailContent = ({ feedId }: Props) => {
                   <Styled.DetailsKey>기술스택</Styled.DetailsKey>
                 </Styled.DetailsKeyWrapper>
                 <Styled.DetailsValue>
-                  <ToggleList width="100%" height="1.75rem">
+                  <ul>
                     {feedDetail.techs.map((tech) => (
                       <li key={tech.id}>
                         <Tag buttonStyle={ButtonStyle.SOLID} onClick={() => searchByTag(tech.text)}>
@@ -184,7 +200,7 @@ const FeedDetailContent = ({ feedId }: Props) => {
                         </Tag>
                       </li>
                     ))}
-                  </ToggleList>
+                  </ul>
                 </Styled.DetailsValue>
               </Styled.DetailsPair>
             )}
@@ -194,9 +210,11 @@ const FeedDetailContent = ({ feedId }: Props) => {
       <div>
         <h3>프로젝트 소개</h3>
         <Divider />
-        <Styled.MarkdownWrapper>
-          <Markdown children={feedDetail.content} />
-        </Styled.MarkdownWrapper>
+        {hasWindow && (
+          <Styled.MarkdownWrapper>
+            <Markdown children={feedDetail.content} />
+          </Styled.MarkdownWrapper>
+        )}
       </div>
 
       <AsyncBoundary

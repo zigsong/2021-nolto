@@ -19,6 +19,7 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
+        default_batch_fetch_size: 100
     show-sql: true
   output:
     ansi:
@@ -30,6 +31,13 @@ spring:
   web:
     resources:
       add-mappings: false
+  redis:
+    host: 127.0.0.1
+    port: 6379
+  data:
+    redis:
+      repositories:
+        enabled: false
 server:
   compression:
     enabled: true
@@ -40,10 +48,6 @@ server:
 application:
   cors:
     allow-origin: "*"
-ffmpeg:
-  path: /usr/bin/ffmpeg
-ffprobe:
-  path: /usr/bin/ffprobe
 ---
 spring:
   config:
@@ -94,6 +98,10 @@ oauth:
     client:
       id: localCilentId
       secret: localCilentSecret
+admin:
+  id: test
+  password: test
+  payload: test
 ---
 spring:
   config:
@@ -122,6 +130,10 @@ oauth:
     client:
       id: testCilentId
       secret: testCilentSecret
+admin:
+  id: test
+  password: test
+  payload: test
 ---
 spring:
   config:
@@ -140,9 +152,11 @@ spring:
 ---
 security:
   jwt:
-    token:
+    access-token:
       secret-key: my_secret_is_secret
-      expire-length: 3600000
+      expire-length: 7200000
+    refresh-token:
+      expire-length: 1209600000
 logging:
   file:
     path: /home/ubuntu/nolto2021

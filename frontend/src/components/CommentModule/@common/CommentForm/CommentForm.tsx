@@ -4,7 +4,7 @@ import SendIcon from 'assets/send.svg';
 import Avatar from 'components/@common/Avatar/Avatar';
 import Toggle from 'components/@common/Toggle/Toggle';
 import { CommentModuleContext } from 'components/CommentModule/CommentModule';
-import useMember from 'hooks/queries/useMember';
+import useMember from 'contexts/member/useMember';
 import useFeedDetail from 'hooks/queries/feed/useFeedDetail';
 import { MESSAGES } from 'constants/message';
 import { CommentRequest } from 'types';
@@ -18,11 +18,11 @@ interface Props {
 const CommentForm = ({ onSubmit, isRootComment = false }: Props) => {
   const [content, setContent] = useState('');
   const [isHelper, setIsHelper] = useState(false);
-  const { userData, isLogin } = useMember();
+  const { userInfo } = useMember();
   const { feedId } = useContext(CommentModuleContext);
   const { data: feedDetail } = useFeedDetail({ feedId, suspense: false });
 
-  const isMyComment = userData?.id === feedDetail?.author.id;
+  const isMyComment = userInfo?.id === feedDetail?.author.id;
 
   const handleSubmitComment = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,19 +44,25 @@ const CommentForm = ({ onSubmit, isRootComment = false }: Props) => {
 
   return (
     <div>
-      {isLogin && (
+      {userInfo && (
         <Styled.Author>
-          <Avatar user={userData} />
+          <Avatar user={userInfo} />
         </Styled.Author>
       )}
       <Form onSubmit={handleSubmitComment}>
         <Styled.FormInputWrapper>
-          {isLogin ? (
-            <CommentFormInput value={content} disabled={false} onChange={handleChangeContent} />
+          {userInfo ? (
+            <CommentFormInput
+              aria-label="댓글 작성"
+              value={content}
+              disabled={false}
+              onChange={handleChangeContent}
+            />
           ) : (
-            <CommentFormInput value={MESSAGES.NEED_LOGIN} disabled={true} />
+            <CommentFormInput aria-label="댓글 작성" value={MESSAGES.NEED_LOGIN} disabled={true} />
           )}
-          <SendButton size="1.5rem" hasShadow={false} disabled={!isLogin}>
+          <SendButton size="1.5rem" hasShadow={false} disabled={!userInfo}>
+            <span className="visually-hidden">댓글 입력</span>
             <SendIcon width="21px" height="21px" />
           </SendButton>
         </Styled.FormInputWrapper>

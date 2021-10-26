@@ -1,25 +1,25 @@
 package com.wooteco.nolto.acceptance;
 
-import com.wooteco.nolto.auth.domain.SocialType;
-import com.wooteco.nolto.feed.ui.dto.FeedRequest;
 import com.wooteco.nolto.notification.domain.NotificationType;
-import com.wooteco.nolto.tech.domain.Tech;
 import com.wooteco.nolto.user.domain.User;
 import com.wooteco.nolto.user.ui.dto.NotificationResponse;
 import io.restassured.RestAssured;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
-import java.util.Arrays;
 import java.util.List;
 
+import static com.wooteco.nolto.UserFixture.찰리_생성;
+import static com.wooteco.nolto.UserFixture.포모_생성;
 import static com.wooteco.nolto.acceptance.CommentAcceptanceTest.*;
 import static com.wooteco.nolto.acceptance.FeedAcceptanceTest.좋아요_요청;
+import static com.wooteco.nolto.acceptance.FeedAcceptanceTest.진행중_단계의_피드_요청;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("알림 관련 기능")
@@ -35,20 +35,22 @@ class NotificationAcceptanceTest extends AcceptanceTest {
     void setUpOnNotificationAcceptanceTest() {
         super.setUp();
 
-        Tech java = techRepository.save(new Tech("Java"));
-        FeedRequest 진행중_단계의_피드_요청 = new FeedRequest("title1", Arrays.asList(java.getId()), "content1", "PROGRESS", false, "www.github.com/woowacourse", null, null);
-
-        피드_작성자의_토큰 = 존재하는_유저의_토큰을_받는다().getAccessToken();
+        피드_작성자의_토큰 = 가입된_유저의_토큰을_받는다().getAccessToken().getValue();
         엄청난_유저의_1번째_피드_ID = 피드_업로드되어_있음(진행중_단계의_피드_요청);
-        좋아요_1개_누를_유저 = 회원_등록되어_있음(new User("2", SocialType.GITHUB, "찰리", "https://dksykemwl00pf.cloudfront.net/amazzi.jpeg"));
-        댓글을_남긴_유저 = 회원_등록되어_있음(new User("3", SocialType.GITHUB, "포모", "https://dksykemwl00pf.cloudfront.net/amazzi.jpeg"));
+        좋아요_1개_누를_유저 = 회원_등록되어_있음(찰리_생성());
+        댓글을_남긴_유저 = 회원_등록되어_있음(포모_생성());
+    }
+
+    @AfterEach
+    void clearOnNotificationAcceptanceTest() {
+        super.clear();
     }
 
     @DisplayName("피드에 좋아요를 누르는 경우 좋아요 알림이 저장된다.")
     @Test
     void notifyWhenFeedLike() {
         // given
-        String 좋아요를_누를_유저의_토큰 = 유저의_토큰을_받는다(좋아요_1개_누를_유저).getAccessToken();
+        String 좋아요를_누를_유저의_토큰 = 유저의_토큰을_받는다(좋아요_1개_누를_유저).getAccessToken().getValue();
         좋아요_요청(좋아요를_누를_유저의_토큰, 엄청난_유저의_1번째_피드_ID);
 
         // when
@@ -66,7 +68,7 @@ class NotificationAcceptanceTest extends AcceptanceTest {
     @Test
     void notifyWhenComment() {
         // given
-        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken();
+        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken().getValue();
         댓글_등록되어_있음(일반_댓글_작성요청, 댓글을_남길_유저의_토큰, 엄청난_유저의_1번째_피드_ID);
 
         // when
@@ -82,7 +84,7 @@ class NotificationAcceptanceTest extends AcceptanceTest {
     @Test
     void notifyWhenCommentWithHelp() {
         // given
-        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken();
+        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken().getValue();
         댓글_등록되어_있음(도와줄게요_댓글_작성요청, 댓글을_남길_유저의_토큰, 엄청난_유저의_1번째_피드_ID);
 
         // when
@@ -98,10 +100,10 @@ class NotificationAcceptanceTest extends AcceptanceTest {
     @Test
     void deleteNotification() {
         // given
-        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken();
+        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken().getValue();
         댓글_등록되어_있음(일반_댓글_작성요청, 댓글을_남길_유저의_토큰, 엄청난_유저의_1번째_피드_ID);
 
-        String 좋아요를_누를_유저의_토큰 = 유저의_토큰을_받는다(좋아요_1개_누를_유저).getAccessToken();
+        String 좋아요를_누를_유저의_토큰 = 유저의_토큰을_받는다(좋아요_1개_누를_유저).getAccessToken().getValue();
         좋아요_요청(좋아요를_누를_유저의_토큰, 엄청난_유저의_1번째_피드_ID);
 
         // when
@@ -119,10 +121,10 @@ class NotificationAcceptanceTest extends AcceptanceTest {
     @Test
     void deleteAllNotification() {
         // given
-        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken();
+        String 댓글을_남길_유저의_토큰 = 유저의_토큰을_받는다(댓글을_남긴_유저).getAccessToken().getValue();
         댓글_등록되어_있음(일반_댓글_작성요청, 댓글을_남길_유저의_토큰, 엄청난_유저의_1번째_피드_ID);
 
-        String 좋아요를_누를_유저의_토큰 = 유저의_토큰을_받는다(좋아요_1개_누를_유저).getAccessToken();
+        String 좋아요를_누를_유저의_토큰 = 유저의_토큰을_받는다(좋아요_1개_누를_유저).getAccessToken().getValue();
         좋아요_요청(좋아요를_누를_유저의_토큰, 엄청난_유저의_1번째_피드_ID);
 
         // when

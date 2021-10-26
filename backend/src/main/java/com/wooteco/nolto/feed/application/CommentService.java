@@ -35,11 +35,6 @@ public class CommentService {
         return CommentResponse.of(comment, user.isCommentLiked(comment));
     }
 
-    public List<CommentResponse> findAllByFeedId(Long feedId, User user) {
-        List<Comment> comments = commentRepository.findAllByFeedIdAndParentCommentIdIsNull(feedId);
-        return CommentResponse.toList(comments, user);
-    }
-
     public CommentResponse updateComment(Long commentId, CommentRequest request, User user) {
         Comment findComment = findEntityById(commentId);
         findComment.checkAuthority(user, ErrorType.UNAUTHORIZED_UPDATE_COMMENT);
@@ -59,16 +54,10 @@ public class CommentService {
     public void deleteComment(User user, Long commentId) {
         Comment findComment = findEntityById(commentId);
         findComment.checkAuthority(user, ErrorType.UNAUTHORIZED_DELETE_COMMENT);
-        if (!findComment.isReply()) {
+        if (findComment.isParentComment()) {
             applicationEventPublisher.publishEvent(new NotificationCommentDeleteEvent(findComment));
         }
         user.deleteComment(findComment);
-        commentRepository.delete(findComment);
-    }
-
-    public Comment findEntityById(Long commentId) {
-        return commentRepository.findById(commentId)
-                .orElseThrow(() -> new NotFoundException(ErrorType.COMMENT_NOT_FOUND));
     }
 
     public CommentResponse createReply(User user, Long feedId, Long commentId, CommentRequest request) {
@@ -82,6 +71,19 @@ public class CommentService {
         return CommentResponse.of(saveReply, user.isCommentLiked(saveReply));
     }
 
+    @Transactional(readOnly = true)
+    public Comment findEntityById(Long commentId) {
+        return commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException(ErrorType.COMMENT_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentResponse> findAllByFeedId(Long feedId, User user) {
+        List<Comment> comments = commentRepository.findAllByFeedIdAndParentCommentIdIsNull(feedId);
+        return CommentResponse.toList(comments, user);
+    }
+
+    @Transactional(readOnly = true)
     public List<ReplyResponse> findAllRepliesById(User user, Long feedId, Long commentId) {
         List<Comment> replies = commentRepository.findAllByFeedIdAndParentCommentIdWithFetchJoin(feedId, commentId);
         return ReplyResponse.toList(replies, user);

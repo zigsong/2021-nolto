@@ -5,21 +5,9 @@ export const BASE_URL: { [key: string]: string } = {
   production: 'https://nolto.kro.kr',
 };
 
-const api = axios.create({
+export const backendApi = axios.create({
   baseURL: BASE_URL[process.env.BASE_URL] || BASE_URL.development,
+  withCredentials: true,
 });
 
-api.interceptors.request.use(
-  (config) => {
-    config.withCredentials = true;
-
-    const accessToken = localStorage.getItem('accessToken');
-    if (accessToken) {
-      config.headers['Authorization'] = 'Bearer ' + accessToken;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-
-export default api;
+export const frontendApi = axios.create();

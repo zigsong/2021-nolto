@@ -2,9 +2,8 @@ package com.wooteco.nolto.auth.application;
 
 import com.wooteco.nolto.auth.domain.*;
 import com.wooteco.nolto.auth.infrastructure.JwtTokenProvider;
-import com.wooteco.nolto.auth.ui.dto.OAuthRedirectResponse;
-import com.wooteco.nolto.auth.ui.dto.OAuthTokenResponse;
-import com.wooteco.nolto.auth.ui.dto.TokenResponse;
+import com.wooteco.nolto.auth.infrastructure.RedisRepository;
+import com.wooteco.nolto.auth.ui.dto.*;
 import com.wooteco.nolto.exception.BadRequestException;
 import com.wooteco.nolto.exception.ErrorType;
 import com.wooteco.nolto.exception.NotFoundException;
@@ -12,12 +11,14 @@ import com.wooteco.nolto.exception.UnauthorizedException;
 import com.wooteco.nolto.user.domain.User;
 import com.wooteco.nolto.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.transaction.Transactional;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.UUID;
 
+@Slf4j
 @Transactional
 @Service
 @RequiredArgsConstructor
@@ -29,6 +30,7 @@ public class AuthService {
     private final OAuthClientProvider oAuthClientProvider;
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RedisRepository redisRepository;
 
     public OAuthRedirectResponse requestSocialRedirect(String socialTypeName) {
         SocialType socialType = SocialType.findBy(socialTypeName);
@@ -36,13 +38,13 @@ public class AuthService {
         return OAuthRedirectResponse.of(socialOauthInfo);
     }
 
-    public TokenResponse oAuthSignIn(String socialTypeName, String code) {
+    public AllTokenResponse oAuthSignIn(String socialTypeName, String code, String clientIP) {
         this.validateCode(code);
         SocialType socialType = SocialType.findBy(socialTypeName);
         OAuthClient oAuthClient = oAuthClientProvider.provideOAuthClientBy(socialType);
         OAuthTokenResponse token = oAuthClient.generateAccessToken(code);
         User user = oAuthClient.generateUserInfo(token);
-        return createToken(Objects.requireNonNull(user));
+        return createToken(Objects.requireNonNull(user), clientIP);
     }
 
     private void validateCode(String code) {
@@ -51,12 +53,19 @@ public class AuthService {
         }
     }
 
-    private TokenResponse createToken(User user) {
-        Optional<User> userOptional = userRepository.findBySocialIdAndSocialType(user.getSocialId(), user.getSocialType());
-        User findUser = userOptional.orElseGet(() -> signUp(user));
+    private AllTokenResponse createToken(User user, String clientIP) {
+        User findUser = userRepository.findBySocialIdAndSocialType(
+                        user.getSocialId(),
+                        user.getSocialType()
+                ).orElseGet(() -> signUp(user));
+        return getTokenResponse(findUser.getId(), clientIP);
+    }
 
-        String token = jwtTokenProvider.createToken(String.valueOf(findUser.getId()));
-        return new TokenResponse(token);
+    private AllTokenResponse getTokenResponse(long userId, String clientIP) {
+        TokenResponse accessToken = jwtTokenProvider.createToken(String.valueOf(userId));
+        TokenResponse refreshToken = jwtTokenProvider.createRefreshToken(UUID.randomUUID().toString());
+        redisRepository.set(refreshToken.getValue(), clientIP, String.valueOf(userId), refreshToken.getExpiredIn());
+        return new AllTokenResponse(accessToken, refreshToken);
     }
 
     private User signUp(User user) {
@@ -79,7 +88,8 @@ public class AuthService {
         return getFindUser(Long.valueOf(payload));
     }
 
-    private User getFindUser(Long id) {
+    @Transactional(readOnly = true)
+    public User getFindUser(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorType.USER_NOT_FOUND));
     }
@@ -88,5 +98,20 @@ public class AuthService {
         if (!jwtTokenProvider.validateToken(token)) {
             throw new UnauthorizedException(ErrorType.INVALID_TOKEN);
         }
+    }
+
+    public AllTokenResponse refreshToken(RefreshTokenRequest request) {
+        if (!redisRepository.exist(request.getRefreshToken())) {
+            log.info("redis doesn't have the refresh token.");
+            throw new BadRequestException(ErrorType.INVALID_TOKEN);
+        }
+
+        if (!redisRepository.leftPop(request.getRefreshToken()).equals(request.getClientIP())) {
+            log.info("invalid request client ip for refresh token. request client : " + request.getClientIP());
+            throw new UnauthorizedException(ErrorType.INVALID_CLIENT);
+        }
+
+        String userId = redisRepository.leftPop(request.getRefreshToken());
+        return getTokenResponse(Long.parseLong(userId), request.getClientIP());
     }
 }

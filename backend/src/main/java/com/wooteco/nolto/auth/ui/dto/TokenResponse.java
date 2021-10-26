@@ -1,14 +1,15 @@
 package com.wooteco.nolto.auth.ui.dto;
 
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
-@Setter
 public class TokenResponse {
-    private String accessToken;
 
-    public TokenResponse(String accessToken) {
-        this.accessToken = accessToken;
+    private final String value;
+    private final long expiredIn;
+
+    public TokenResponse(String value, long expiredIn) {
+        this.value = value;
+        this.expiredIn = expiredIn;
     }
 }

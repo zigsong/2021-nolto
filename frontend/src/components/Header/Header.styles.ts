@@ -54,11 +54,17 @@ const LogoWrapper = styled.div`
   flex-shrink: 0;
   padding: 0.5rem;
 
-  > a {
+  & > a {
     height: 100%;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+  }
+
+  @media ${MEDIA_QUERY.MOBILE} {
+    width: 40px;
+    height: 40px;
+    padding: 0;
   }
 `;
 
@@ -72,11 +78,14 @@ export const LogoText = styled(LogoTextIcon)`
 
 const NavContainer = styled.nav`
   position: relative;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 1rem;
   width: 100%;
+
+  & ul {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+  }
 
   & li {
     text-align: center;
@@ -135,6 +144,10 @@ const AuthButton = styled(TextButton.Rounded)`
   padding: 4px 16px;
   font-size: inherit;
   line-height: inherit;
+
+  @media ${MEDIA_QUERY.TABLET_SMALL} {
+    display: none;
+  }
 `;
 
 const stretchTo = (maxWidth: string) => keyframes`
@@ -162,6 +175,18 @@ const UserContainer = styled.div`
   align-items: center;
   flex-shrink: 0;
   margin-left: 1rem;
+
+  @media ${MEDIA_QUERY.TABLET_SMALL} {
+    margin-left: 0.5rem;
+  }
+
+  & .signin {
+    display: none;
+
+    @media ${MEDIA_QUERY.TABLET_SMALL} {
+      display: inline-block;
+    }
+  }
 `;
 
 export default {

@@ -2,11 +2,13 @@ package com.wooteco.nolto.auth.application;
 
 import com.wooteco.nolto.auth.domain.OAuthClientProvider;
 import com.wooteco.nolto.auth.domain.SocialType;
+import com.wooteco.nolto.auth.infrastructure.RedisRepository;
 import com.wooteco.nolto.auth.infrastructure.oauth.GithubClient;
 import com.wooteco.nolto.auth.infrastructure.oauth.GoogleClient;
+import com.wooteco.nolto.auth.ui.dto.AllTokenResponse;
 import com.wooteco.nolto.auth.ui.dto.OAuthRedirectResponse;
 import com.wooteco.nolto.auth.ui.dto.OAuthTokenResponse;
-import com.wooteco.nolto.auth.ui.dto.TokenResponse;
+import com.wooteco.nolto.auth.ui.dto.RefreshTokenRequest;
 import com.wooteco.nolto.exception.BadRequestException;
 import com.wooteco.nolto.exception.ErrorType;
 import com.wooteco.nolto.user.domain.User;
@@ -16,14 +18,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
-@Transactional
+@ActiveProfiles("test")
 @SpringBootTest
+@Transactional
 class AuthServiceTest {
 
     private static final OAuthTokenResponse OAUTH_TOKEN_RESPONSE1 =
@@ -33,6 +37,7 @@ class AuthServiceTest {
     public static final String USER_NICKNAME = "user";
     private static final User USER1 = new User("socialId1", SocialType.GITHUB, USER_NICKNAME, "imageUrl");
     private static final User USER2 = new User("socialId2", SocialType.GITHUB, USER_NICKNAME, "imageUrl");
+    private static final String CLIENT_IP_V6 = "0:0:0:0:0:0:0:1";
 
     @Autowired
     private AuthService authService;
@@ -48,6 +53,9 @@ class AuthServiceTest {
 
     @MockBean
     private GoogleClient googleClient;
+
+    @MockBean
+    private RedisRepository redisRepository;
 
     @DisplayName("깃허브 로그인의 code를 얻기위한 파라미터들을 요청한다.")
     @Test
@@ -85,9 +93,8 @@ class AuthServiceTest {
         given(githubClient.generateAccessToken("code")).willReturn(OAUTH_TOKEN_RESPONSE1);
         given(githubClient.generateUserInfo(OAUTH_TOKEN_RESPONSE1)).willReturn(USER1);
 
-        TokenResponse tokenResponse = authService.oAuthSignIn("github", "code");
-
-        assertThat(tokenResponse).isNotNull();
+        AllTokenResponse allTokenResponse = authService.oAuthSignIn("github", "code", CLIENT_IP_V6);
+        assertThat(allTokenResponse).isNotNull();
     }
 
     @DisplayName("구글 로그인으로 로그인에 성공하면 토큰을 반환해준다.")
@@ -97,9 +104,8 @@ class AuthServiceTest {
         given(githubClient.generateAccessToken("code")).willReturn(OAUTH_TOKEN_RESPONSE1);
         given(githubClient.generateUserInfo(OAUTH_TOKEN_RESPONSE1)).willReturn(USER1);
 
-        TokenResponse tokenResponse = authService.oAuthSignIn("google", "code");
-
-        assertThat(tokenResponse).isNotNull();
+        AllTokenResponse allTokenResponse = authService.oAuthSignIn("google", "code", CLIENT_IP_V6);
+        assertThat(allTokenResponse).isNotNull();
     }
 
     @DisplayName("code 요청값이 null이거나 빈값이면 예외가 발생한다.")
@@ -109,11 +115,11 @@ class AuthServiceTest {
         given(githubClient.generateAccessToken("code")).willReturn(OAUTH_TOKEN_RESPONSE1);
         given(githubClient.generateUserInfo(OAUTH_TOKEN_RESPONSE1)).willReturn(USER1);
 
-        assertThatThrownBy(() -> authService.oAuthSignIn("google", null))
+        assertThatThrownBy(() -> authService.oAuthSignIn("google", null, CLIENT_IP_V6))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage(ErrorType.INVALID_OAUTH_CODE.getMessage());
 
-        assertThatThrownBy(() -> authService.oAuthSignIn("google", ""))
+        assertThatThrownBy(() -> authService.oAuthSignIn("google", "", CLIENT_IP_V6))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage(ErrorType.INVALID_OAUTH_CODE.getMessage());
     }
@@ -125,7 +131,7 @@ class AuthServiceTest {
         given(githubClient.generateAccessToken("code")).willReturn(OAUTH_TOKEN_RESPONSE1);
         given(githubClient.generateUserInfo(OAUTH_TOKEN_RESPONSE1)).willReturn(USER1);
 
-        assertThatThrownBy(() -> authService.oAuthSignIn("naver", "code"))
+        assertThatThrownBy(() -> authService.oAuthSignIn("naver", "code", CLIENT_IP_V6))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage(ErrorType.NOT_SUPPORTED_SOCIAL_LOGIN.getMessage());
     }
@@ -142,8 +148,8 @@ class AuthServiceTest {
         User existNickNameUser = new User("socialId3", SocialType.GITHUB, USER_NICKNAME, "imageUrl");
         userRepository.save(existNickNameUser);
 
-        authService.oAuthSignIn("google", "code1");
-        authService.oAuthSignIn("google", "code2");
+        authService.oAuthSignIn("google", "code1", CLIENT_IP_V6);
+        authService.oAuthSignIn("google", "code2", CLIENT_IP_V6);
 
         boolean 맨처음_저장된_중복_닉네임_존재여부 = userRepository.existsByNickName(USER_NICKNAME);
         boolean 두번째_저장된_중복_닉네임_존재여부 = userRepository.existsByNickName(USER_NICKNAME + "(1)");
@@ -152,5 +158,21 @@ class AuthServiceTest {
         assertThat(맨처음_저장된_중복_닉네임_존재여부).isTrue();
         assertThat(두번째_저장된_중복_닉네임_존재여부).isTrue();
         assertThat(세번째_저장된_중복_닉네임_존재여부).isTrue();
+    }
+
+    @DisplayName("리프레시 토큰을 이용해 액세스/리프레시 토큰을 재발급 한다.")
+    @Test
+    void refreshToken() {
+        // given
+        given(redisRepository.exist("refresh token")).willReturn(true);
+        given(redisRepository.leftPop("refresh token")).willReturn("client IP").willReturn("1");
+
+        // when
+        RefreshTokenRequest request = new RefreshTokenRequest("refresh token", "client IP");
+        AllTokenResponse allTokenResponse = authService.refreshToken(request);
+
+        // then
+        assertThat(allTokenResponse.getRefreshToken()).isNotNull();
+        assertThat(allTokenResponse.getAccessToken()).isNotNull();
     }
 }

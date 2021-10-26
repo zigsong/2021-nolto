@@ -24,7 +24,9 @@ import java.util.stream.Collectors;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
+
     public static final GuestUser GUEST_USER = new GuestUser();
+    public static final AdminUser ADMIN_USER = new AdminUser();
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,7 +58,7 @@ public class User extends BaseEntity {
     @OneToMany(mappedBy = "author", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<CommentLike> commentLikes = new ArrayList<>();
 
     public User(String socialId, SocialType socialType, String nickName, String imageUrl) {
@@ -72,7 +74,7 @@ public class User extends BaseEntity {
         this.imageUrl = imageUrl;
         this.bio = bio;
         this.feeds = new ArrayList<>();
-        this.likes  = new ArrayList<>();
+        this.likes = new ArrayList<>();
         this.comments = new ArrayList<>();
         this.commentLikes = new ArrayList<>();
     }
@@ -153,7 +155,16 @@ public class User extends BaseEntity {
 
     public void deleteComment(Comment comment) {
         this.comments.remove(comment);
-        comment.delete();
+    }
+
+    public void validateAdmin() {
+        if (!this.isAdmin()) {
+            throw new UnauthorizedException(ErrorType.ADMIN_ONLY);
+        }
+    }
+
+    public boolean isAdmin() {
+        return this.equals(ADMIN_USER);
     }
 
     @Override
@@ -179,5 +190,8 @@ public class User extends BaseEntity {
         public boolean isCommentLiked(Comment comment) {
             return false;
         }
+    }
+
+    private static class AdminUser extends User {
     }
 }
